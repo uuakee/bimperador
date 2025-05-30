@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuário
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  fullName  String
+  cpf       String   @unique
+  phone     String?
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  wallet       Wallet?
+  bets         Bet[]
+  payments     Payment[]
+  notifications Notification[]
+  admin        Admin?
+
+  @@map("users")
+}
+
+// Carteira do usuário
+model Wallet {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  balance     Decimal  @default(0) @db.Decimal(10, 2)
+  totalDeposit Decimal @default(0) @db.Decimal(10, 2)
+  totalWithdraw Decimal @default(0) @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("wallets")
+}
+
+// Transações da carteira
+model Transaction {
+  id          String          @id @default(uuid())
+  walletId    String
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  description String
+  status      TransactionStatus @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relacionamentos
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+// Times de futebol
+model Team {
+  id       String @id @default(uuid())
+  name     String @unique
+  code     String @unique // Ex: FLA, PAL, COR
+  logo     String?
+  country  String @default("BR")
+  isActive Boolean @default(true)
+
+  // Relacionamentos
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+  betChoices  BetChoice[]
+
+  @@map("teams")
+}
+
+// Partidas
+model Match {
+  id           String      @id @default(uuid())
+  homeTeamId   String
+  awayTeamId   String
+  matchDate    DateTime
+  homeScore    Int?
+  awayScore    Int?
+  status       MatchStatus @default(SCHEDULED)
+  competition  String      // Ex: Brasileirão, Copa do Brasil
+  round        String?     // Ex: "Rodada 1", "Quartas de Final"
+  isFinished   Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relacionamentos
+  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  
+  bolaos   BolaoMatch[]
+  bets     Bet[]
+
+  @@map("matches")
+}
+
+// Bolões
+model Bolao {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  entryFee    Decimal    @db.Decimal(10, 2)
+  maxPlayers  Int?       // Limite de participantes
+  prizePool   Decimal    @default(0) @db.Decimal(10, 2)
+  startDate   DateTime
+  endDate     DateTime
+  status      BolaoStatus @default(ACTIVE)
+  modality    BolaoModality
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Configurações específicas por modalidade
+  settings Json? // Para armazenar configurações específicas de cada modalidade
+
+  // Relacionamentos
+  matches  BolaoMatch[]
+  bets     Bet[]
+  payments Payment[]
+
+  @@map("bolaos")
+}
+
+// Relacionamento N:N entre Bolão e Partidas
+model BolaoMatch {
+  id      String @id @default(uuid())
+  bolaoId String
+  matchId String
+
+  // Relacionamentos
+  bolao Bolao @relation(fields: [bolaoId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([bolaoId, matchId])
+  @@map("bolao_matches")
+}
+
+// Apostas
+model Bet {
+  id        String    @id @default(uuid())
+  userId    String
+  bolaoId   String
+  matchId   String
+  amount    Decimal   @db.Decimal(10, 2)
+  status    BetStatus @default(ACTIVE)
+  points    Int       @default(0)
+  isWinner  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relacionamentos
+  user    User        @relation(fields: [userId], references: [id])
+  bolao   Bolao       @relation(fields: [bolaoId], references: [id])
+  match   Match       @relation(fields: [matchId], references: [id])
+  choices BetChoice[]
+
+  @@unique([userId, bolaoId, matchId]) // Usuário só pode apostar uma vez por partida em cada bolão
+  @@map("bets")
+}
+
+// Escolhas da aposta (suporta diferentes modalidades)
+model BetChoice {
+  id     String           @id @default(uuid())
+  betId  String
+  type   BetChoiceType
+  value  String           // Valor da escolha (pode ser teamId, placar, etc.)
+  teamId String?          // Para apostas relacionadas a times
+
+  // Relacionamentos
+  bet  Bet   @relation(fields: [betId], references: [id], onDelete: Cascade)
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@map("bet_choices")
+}
+
+// Pagamentos e prêmios
+model Payment {
+  id          String        @id @default(uuid())
+  userId      String
+  bolaoId     String
+  amount      Decimal       @db.Decimal(10, 2)
+  type        PaymentType
+  status      PaymentStatus @default(PENDING)
+  description String?
+  processedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relacionamentos
+  user  User  @relation(fields: [userId], references: [id])
+  bolao Bolao @relation(fields: [bolaoId], references: [id])
+
+  @@map("payments")
+}
+
+// Notificações
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean            @default(false)
+  data      Json?              // Dados adicionais da notificação
+  createdAt DateTime           @default(now())
+
+  // Relacionamentos
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Administradores do sistema
+model Admin {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("admins")
+}
+
+// Enums
+enum TransactionType {
+  DEPOSIT
+  WITHDRAW
+  BET
+  PRIZE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+enum BolaoStatus {
+  ACTIVE
+  CLOSED
+  FINISHED
+  CANCELLED
+}
+
+enum BolaoModality {
+  WINNER        // Modalidade: quem vai vencer
+  EXACT_SCORE   // Modalidade: placar exato
+  TOTAL_GOALS   // Modalidade: quantidade total de gols
+  BOTH_SCORE    // Modalidade: ambos marcam
+  CUSTOM        // Modalidade customizada
+}
+
+enum BetStatus {
+  ACTIVE
+  WON
+  LOST
+  CANCELLED
+  REFUNDED
+}
+
+enum BetChoiceType {
+  WINNER        // Escolha do vencedor (homeWin, awayWin, draw)
+  EXACT_SCORE   // Placar exato (ex: "2-1")
+  TOTAL_GOALS   // Total de gols (ex: "3")
+  HOME_SCORE    // Gols do time da casa
+  AWAY_SCORE    // Gols do time visitante
+  BOTH_SCORE    // Ambos marcam (yes/no)
+}
+
+enum PaymentType {
+  ENTRY_FEE
+  PRIZE
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  PAYMENT_RECEIVED
+  BOLAO_STARTED
+  BOLAO_FINISHED
+  MATCH_RESULT
+  SYSTEM
+}
