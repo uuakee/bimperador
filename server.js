@@ -5,16 +5,29 @@ const bodyParser = require("body-parser");
 const database = require("./src/config/database");
 const authRoutes = require("./src/routes/auth.routes");
 const walletRoutes = require("./src/routes/wallet.routes");
-
+const swagger = require("./src/config/swagger");
+const teamRoutes = require("./src/routes/team.routes");
+const matchRoutes = require("./src/routes/match.routes");
+const bolaoRoutes = require("./src/routes/bolao.routes");
+const betRoutes = require("./src/routes/bet.routes");
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
 const appVersion = "v1/api";
 
-// Rotas
+// Configuração do Swagger
+swagger.setup(app);
+
+// Rotas públicas
+
+// Rotas autenticadas
 app.use(`/${appVersion}/auth`, authRoutes);
 app.use(`/${appVersion}/wallet`, walletRoutes);
+app.use(`/${appVersion}/teams`, teamRoutes);
+app.use(`/${appVersion}/matches`, matchRoutes);
+app.use(`/${appVersion}/bolaos`, bolaoRoutes);
+app.use(`/${appVersion}/bets`, betRoutes);
 
 const startServer = async () => {
   try {
@@ -49,5 +62,6 @@ app.get("/", (req, res) => {
 
 // Inicia o servidor
 startServer();
+console.log("📚 Documentação disponível em http://localhost:7777/api-docs");
 
 

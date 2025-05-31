@@ -1,0 +1,540 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API Bolão do Imperador",
+    "description": "API para gerenciamento de bolões de futebol",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7777/api/v1",
+      "description": "API v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "campo": {
+                  "type": "string"
+                },
+                "mensagem": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Match": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "homeTeamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "awayTeamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "homeScore": {
+            "type": "integer",
+            "nullable": true
+          },
+          "awayScore": {
+            "type": "integer",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["SCHEDULED", "LIVE", "FINISHED", "CANCELLED", "POSTPONED"]
+          },
+          "competition": {
+            "type": "string"
+          },
+          "round": {
+            "type": "string"
+          },
+          "isFinished": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Bolao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "entryFee": {
+            "type": "number"
+          },
+          "maxPlayers": {
+            "type": "integer"
+          },
+          "prizePool": {
+            "type": "number"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "FINISHED", "CANCELLED"]
+          },
+          "modality": {
+            "type": "string",
+            "enum": ["WINNER", "EXACT_SCORE"]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Bet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bolaoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "WON", "LOST", "CANCELLED", "REFUNDED"]
+          },
+          "points": {
+            "type": "integer"
+          },
+          "isWinner": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BetChoice": {
+        "type": "object",
+        "properties": {
+          "winner": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID do time vencedor (apenas para modalidade WINNER)"
+          },
+          "homeScore": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Gols do time da casa (apenas para modalidade EXACT_SCORE)"
+          },
+          "awayScore": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Gols do time visitante (apenas para modalidade EXACT_SCORE)"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/bolaos/list": {
+      "get": {
+        "summary": "Lista todos os bolões ativos",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de bolões",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Bolao"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Cria um novo bolão",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "entryFee", "startDate", "endDate", "modality", "matchIds"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "entryFee": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "maxPlayers": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "modality": {
+                    "type": "string",
+                    "enum": ["WINNER", "EXACT_SCORE"]
+                  },
+                  "matchIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bolão criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bolao"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bolaos/{id}": {
+      "get": {
+        "summary": "Obtém detalhes de um bolão específico",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes do bolão",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bolao"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bolaos/{id}/results": {
+      "get": {
+        "summary": "Obtém os resultados de um bolão",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultados do bolão",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bolao": {
+                      "$ref": "#/components/schemas/Bolao"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "username": {
+                            "type": "string"
+                          },
+                          "correctPredictions": {
+                            "type": "integer"
+                          },
+                          "totalBets": {
+                            "type": "integer"
+                          },
+                          "predictions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "matchId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "prediction": {
+                                  "type": "string"
+                                },
+                                "result": {
+                                  "type": "string"
+                                },
+                                "correct": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bets": {
+      "post": {
+        "summary": "Realiza apostas em um bolão",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["bolaoId", "bets"],
+                "properties": {
+                  "bolaoId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "bets": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["matchId", "betChoices"],
+                      "properties": {
+                        "matchId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "betChoices": {
+                          "$ref": "#/components/schemas/BetChoice"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Apostas realizadas com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "number"
+                    },
+                    "bets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Bet"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bets/user": {
+      "get": {
+        "summary": "Lista todas as apostas do usuário",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de apostas do usuário",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Bet"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bets/{id}": {
+      "get": {
+        "summary": "Obtém detalhes de uma aposta específica",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes da aposta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bet"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 

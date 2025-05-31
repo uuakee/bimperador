@@ -18,6 +18,7 @@ model User {
   phone     String?
   avatar    String?
   isActive  Boolean  @default(true)
+  isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -26,7 +27,6 @@ model User {
   bets         Bet[]
   payments     Payment[]
   notifications Notification[]
-  admin        Admin?
 
   @@map("users")
 }
@@ -223,19 +223,6 @@ model Notification {
   @@map("notifications")
 }
 
-// Administradores do sistema
-model Admin {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  role      String   @default("ADMIN")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relacionamentos
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@map("admins")
-}
 
 // Enums
 enum TransactionType {

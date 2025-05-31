@@ -1,4 +1,4 @@
-const authMiddleware = require('./authMiddleware');
+const authMiddleware = require('./auth.middleware');
 
 // Middleware para proteger rotas que requerem autenticação
 const requireAuth = (roles = []) => {
